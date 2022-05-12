@@ -70,7 +70,7 @@ class BogoReceiver(Receiver):
 
                     check = self.checksum(str(data[-20:-10]))
                     packet = str(data[-20:-10]) + check
-                    self.simulator.u_send(bytearray(packet))  # send ACK
+                    self.simulator.u_send(bytearray(packet))
                     ack = ack + 1
 
                     self.logger.info("Sent Ack {}".format(ack))
