@@ -32,19 +32,47 @@ class BogoSender(Sender):
         super(BogoSender, self).__init__()
         
     
+    def checksum(self, data):
+        ch = 37
+        value = 0
     
+        data = bytearray(data)
+        for ch in data:
+            value = 37 * value + ch;
+            value = value%1e10
+            
+        tmp = int(value % 1e10)
+        tmp = str(tmp)
+        tmp = "0"*(10-len(tmp)) + tmp
 
-    def checksum(self, preprocessedData):
-        sequenceNum = 1
+        return tmp
 
-    def make_packet(self, data):
-        sequenceNum = 2
+
+
+
+
+    def send_packet(self, data, seq):
+        tmp = str(seq)
+        tmp = "0"*(10-len(tmp)) + tmp
+        check = self.checksum(data+tmp)
+        self.simulator.u_send(bytearray(data) + bytearray(tmp + check, encoding="utf8"))
+
+
+
+
+
 
     def resend(self, allPackets, baseGBN, maxPacket):
         for i in range(10):
             if baseGBN + i < maxPacket:
-                self.simulator.u_send(bytearray(allPackets[baseGBN + i]) + bytearray("0"*(10-len(str(baseGBN + i))) + str(baseGBN + i)))
+                self.send_packet(allPackets[baseGBN + i], baseGBN + i)
                 self.logger.info("Resent packet {}".format(baseGBN + i))
+
+
+
+
+
+
 
     def send(self, data):
         self.logger.info("Sending on port: {} and waiting for ACK on port: {}".format(self.outbound_port, self.inbound_port))
@@ -58,10 +86,10 @@ class BogoSender(Sender):
 
         while True:
 
-            packets = [data[i:i+1014] for i in range(0, len(data), 1014)] 
+            packets = [data[i:i+1004] for i in range(0, len(data), 1004)] 
 
             if ((sequenceNum < baseGBN + N) and (sequenceNum < len(packets))):
-                self.simulator.u_send(bytearray(packets[sequenceNum]) + bytearray("0"*(10-len(str(sequenceNum))) + str(sequenceNum)))
+                self.send_packet(packets[sequenceNum], sequenceNum)
                 self.logger.info("Sent packet {}".format(sequenceNum))
                 sequenceNum = sequenceNum + 1
                 if(baseGBN + N - 1 == sequenceNum):
@@ -75,13 +103,24 @@ class BogoSender(Sender):
             try:
                 ack = self.simulator.u_receive()
                 self.logger.info("Received ack {}".format(ack))
-             
-                if (ack == "0"*(10-len(str(baseGBN))) + str(baseGBN)):
+
+                check = ack[-10:]
+                comp = self.checksum(ack[:-10])
+
+
+
+                if check != comp:
+                    self.logger.info("Corrupted checksum sender {}".format(check))
+                    self.logger.info("Corrupted ack sender {}".format(comp))
+                    continue
+
+
+                if (str(ack[:-10]) == "0"*(10-len(str(baseGBN))) + str(baseGBN)):
                     self.logger.info("GBN {}".format(baseGBN))
                     baseGBN = baseGBN + 1
                     timers.cancel()
-                elif (int(str(ack)) > baseGBN):
-                    baseGBN = int(str(ack));
+                elif (int(str(ack[:-10])) > baseGBN):
+                    baseGBN = int(str(ack[:-10]));
                     self.logger.info("GBN Boosted Up {}".format(baseGBN))
                 else:
                     self.logger.info("GBN too high {}".format(baseGBN))
