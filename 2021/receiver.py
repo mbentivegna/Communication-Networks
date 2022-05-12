@@ -88,7 +88,7 @@ class MyReceiver(Receiver):
 
                         #Send packet
                         self.simulator.u_send(bytearray(prevAck + prevAckCheck))
-                        self.logger.info("Sent Ack duplicate{}".format(ack))
+                        self.logger.info("Sent Ack duplicate {}".format(ack))
 
                 #If corrupted go to next iteration
                 else:
